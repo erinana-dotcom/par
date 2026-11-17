@@ -106,6 +106,17 @@
 
         .content { padding: 28px 32px 40px; }
 
+        /* ---------- Aksi cepat ---------- */
+        .quick { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .btn-quick {
+            padding: 10px 18px; border-radius: 3px;
+            font-size: 13.5px; font-weight: 600; text-decoration: none;
+            border: 1px solid var(--line-yellow);
+        }
+        .btn-quick.primary { background: var(--line-yellow); color: #F5EEDD; }
+        .btn-quick.secondary { background: transparent; color: var(--line-yellow); }
+        .btn-quick:hover { opacity: .88; }
+
         /* ---------- Stat cards ---------- */
         .stats {
             display: grid;
@@ -133,7 +144,7 @@
         /* ---------- Panels ---------- */
         .grid-2 {
             display: grid;
-            grid-template-columns: 1fr 1.6fr;
+            grid-template-columns: 1fr 2.2fr;
             gap: 16px;
             align-items: start;
         }
@@ -175,6 +186,9 @@
         tbody td { padding: 12px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
         tbody tr:last-child td { border-bottom: none; }
 
+        /* Parkir lebih dari 24 jam */
+        .durasi-lama { color: var(--warn); font-weight: 600; }
+
         .plate {
             font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: .03em;
             background: var(--asphalt); border: 1px solid var(--border);
@@ -183,6 +197,16 @@
         .status-pill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 20px; display: inline-block; }
         .status-pill.parked { background: rgba(94,112,82,.16); color: var(--ok); }
         .status-pill.exited { background: rgba(122,104,82,.16); color: var(--text-muted); }
+
+        /* Tombol kecil di baris tabel */
+        .btn-row {
+            font: inherit; font-size: 12px; font-weight: 600;
+            padding: 4px 12px; border-radius: 3px; cursor: pointer;
+            border: 1px solid var(--line-yellow); background: transparent;
+            color: var(--line-yellow); text-decoration: none; display: inline-block;
+        }
+        .btn-row:hover { background: var(--line-yellow); color: #F5EEDD; }
+        .btn-row:disabled { opacity: .5; cursor: not-allowed; }
 
         .empty { font-size: 13px; color: var(--text-muted); padding: 8px 0; }
         .link-more { display: inline-block; margin-top: 14px; font-size: 13px; color: var(--line-yellow); text-decoration: none; font-weight: 600; }
@@ -208,6 +232,7 @@
 <body>
     @php
         $bisaLihatPendapatan = in_array($role, ['admin', 'owner']);
+        $bisaOperasional     = in_array($role, ['admin', 'petugas']);
     @endphp
 
     <aside class="sidebar">
@@ -218,7 +243,7 @@
                 <span class="dot"></span>Ringkasan
             </a>
 
-            @if(in_array($role, ['admin', 'petugas']))
+            @if($bisaOperasional)
                 <a href="{{ route('transaksi.index') }}"><span class="dot"></span>Transaksi</a>
             @endif
 
@@ -261,6 +286,14 @@
 
         <div class="content">
 
+            {{-- Aksi cepat (admin & petugas) --}}
+            @if($bisaOperasional)
+                <div class="quick">
+                    <a href="{{ route('transaksi.index') }}#form-masuk" class="btn-quick primary">+ Kendaraan Masuk</a>
+                    <a href="{{ route('transaksi.index') }}#daftar-transaksi" class="btn-quick secondary">Kendaraan Keluar</a>
+                </div>
+            @endif
+
             {{-- Kartu statistik --}}
             <div class="stats {{ $bisaLihatPendapatan ? '' : 'three' }}">
                 <div class="stat-card">
@@ -288,7 +321,7 @@
                                 {{ $persenPendapatan >= 0 ? '↑' : '↓' }} {{ abs($persenPendapatan) }}% dari kemarin
                             </div>
                         @else
-                            <div class="delta">Belum ada data kemarin</div>
+                            <div class="delta">Belum ada pembanding dari kemarin</div>
                         @endif
                     </div>
                 @endif
@@ -302,11 +335,11 @@
 
                     @forelse($zonaOkupansi as $z)
                         <div class="zone-row">
-                            <div class="name" title="{{ $z['nama'] }}">{{ $z['nama'] }}</div>
+                            <div class="name" title="{{ ucwords($z['nama']) }}">{{ ucwords($z['nama']) }}</div>
                             <div class="bar-track"
                                  role="progressbar"
                                  aria-valuenow="{{ $z['persen'] }}" aria-valuemin="0" aria-valuemax="100"
-                                 aria-label="Okupansi {{ $z['nama'] }}">
+                                 aria-label="Okupansi {{ ucwords($z['nama']) }}">
                                 <div class="bar-fill {{ $z['persen'] >= 90 ? 'danger' : ($z['persen'] >= 70 ? 'warn' : '') }}"
                                      style="width: {{ $z['persen'] }}%"></div>
                             </div>
@@ -333,20 +366,61 @@
                                         <th>Plat</th>
                                         <th>Zona</th>
                                         <th>Masuk</th>
+                                        <th>Keluar</th>
+                                        <th>Durasi</th>
+                                        @if($bisaLihatPendapatan)
+                                            <th>Biaya</th>
+                                        @endif
                                         <th>Status</th>
+                                        @if($bisaOperasional)
+                                            <th>Aksi</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($transaksiTerbaru as $t)
+                                        @php
+                                            $parkir = $t->status === 'Terparkir';
+                                            $masuk  = \Carbon\Carbon::parse($t->waktu_masuk);
+                                            $keluar = $t->waktu_keluar ? \Carbon\Carbon::parse($t->waktu_keluar) : null;
+                                            $lama   = $parkir && $masuk->diffInHours(now()) >= 24;
+                                        @endphp
                                         <tr>
                                             <td><span class="plate">{{ $t->plat_nomor }}</span></td>
-                                            <td>{{ $t->nama_zona }}</td>
-                                            <td>{{ \Carbon\Carbon::parse($t->waktu_masuk)->format('d/m H:i') }}</td>
+                                            <td>{{ ucwords($t->nama_zona) }}</td>
+                                            <td>{{ $masuk->format('d/m/Y H:i') }}</td>
+                                            <td>{{ $keluar ? $keluar->format('d/m/Y H:i') : '-' }}</td>
                                             <td>
-                                                <span class="status-pill {{ $t->status === 'Terparkir' ? 'parked' : 'exited' }}">
+                                                @if($parkir)
+                                                    <span class="{{ $lama ? 'durasi-lama' : '' }}"
+                                                          @if($lama) title="Sudah parkir lebih dari 24 jam" @endif>
+                                                        {{ $masuk->copy()->locale('id')->diffForHumans(null, \Carbon\CarbonInterface::DIFF_ABSOLUTE) }}
+                                                    </span>
+                                                @else
+                                                    {{ !is_null($t->durasi_jam) ? $t->durasi_jam . ' jam' : '-' }}
+                                                @endif
+                                            </td>
+                                            @if($bisaLihatPendapatan)
+                                                <td>{{ !is_null($t->total_biaya) ? 'Rp ' . number_format($t->total_biaya, 0, ',', '.') : '-' }}</td>
+                                            @endif
+                                            <td>
+                                                <span class="status-pill {{ $parkir ? 'parked' : 'exited' }}">
                                                     {{ $t->status }}
                                                 </span>
                                             </td>
+                                            @if($bisaOperasional)
+                                                <td>
+                                                    @if($parkir)
+                                                        <form action="{{ route('transaksi.checkout', $t->id) }}" method="POST"
+                                                              onsubmit="return confirm('Proses {{ $t->plat_nomor }} keluar dan hitung biaya?')">
+                                                            @csrf
+                                                            <button type="submit" class="btn-row">Keluar</button>
+                                                        </form>
+                                                    @else
+                                                        <a href="{{ route('transaksi.struk', $t->id) }}" target="_blank" class="btn-row">Karcis</a>
+                                                    @endif
+                                                </td>
+                                            @endif
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -356,12 +430,25 @@
                         <div class="empty">Belum ada transaksi.</div>
                     @endif
 
-                    @if(in_array($role, ['admin', 'petugas']))
+                    @if($bisaOperasional)
                         <a class="link-more" href="{{ route('transaksi.index') }}">Lihat semua transaksi →</a>
+                    @elseif($role === 'owner')
+                        <a class="link-more" href="{{ route('rekap.index') }}">Lihat rekap transaksi →</a>
                     @endif
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        // Cegah klik ganda pada tombol Keluar: dikunci begitu form dikirim
+        document.querySelectorAll('td form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                if (e.defaultPrevented) return;
+                var tombol = form.querySelector('button[type="submit"]');
+                if (tombol) setTimeout(function () { tombol.disabled = true; }, 0);
+            });
+        });
+    </script>
 </body>
 </html>

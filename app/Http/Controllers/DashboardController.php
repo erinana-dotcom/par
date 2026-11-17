@@ -52,21 +52,12 @@ class DashboardController extends Controller
                 : null;
         }
 
-                if (in_array($role, ['admin', 'owner'])) {
-            $pendapatan = $this->pendapatanPada(today());
-            $kemarin    = $this->pendapatanPada(today()->subDay());
-
-            $persenPendapatan = $kemarin > 0
-                ? round(($pendapatan - $kemarin) / $kemarin * 100)
-                : null;
-        }
-
-        // ⬇️ TARUH DI SINI
+        // 5 aktivitas parkir terakhir (dikirim ke view di bawah)
         $transaksiTerbaru = Transaksi::orderByDesc('id')->take(5)->get();
 
         return view('dashboard', compact(
             'role', 'totalSlot', 'jumlahZona', 'terisi', 'tersedia',
-            'pendapatan', 'persenPendapatan', 'zonaOkupansi'
+            'pendapatan', 'persenPendapatan', 'zonaOkupansi', 'transaksiTerbaru'
         ));
     }
 
