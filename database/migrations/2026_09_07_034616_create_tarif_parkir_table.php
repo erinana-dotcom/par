@@ -6,21 +6,16 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-   public function up(): void
-{
-    $table->id();
-$table->string('jenis_kendaraan');
-$table->integer('tarif_per_jam');
-$table->timestamps();
-}
+    public function up(): void
+    {
+        Schema::create('tarif_parkir', function (Blueprint $table) {
+            $table->id();
+            $table->string('jenis_kendaraan')->unique();
+            $table->unsignedInteger('tarif_per_jam');
+            $table->timestamps();
+        });
+    }
 
-
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('tarif_parkir');
